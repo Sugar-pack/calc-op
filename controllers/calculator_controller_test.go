@@ -30,18 +30,11 @@ import (
 	"testing"
 
 	calculator "github.com/example/calc-opr/api/v1"
-	"k8s.io/client-go/rest"
-	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	//+kubebuilder:scaffold:imports
 )
 
 // These tests use Ginkgo (BDD-style Go testing framework). Refer to
 // http://onsi.github.io/ginkgo/ to learn more about Ginkgo.
-
-var cfg *rest.Config
-var k8sClient client.Client
-var testEnv *envtest.Environment
 
 func TestCalculatorReconcilerValid(t *testing.T) {
 	calc := &calculator.Calculator{
@@ -50,7 +43,7 @@ func TestCalculatorReconcilerValid(t *testing.T) {
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: "default",
-			Name: "test",
+			Name:      "test",
 		},
 		Spec: calculator.CalculatorSpec{
 			X: 5,
@@ -97,11 +90,11 @@ func TestCalculatorReconcilerValid(t *testing.T) {
 	assert.NoError(t, err)
 
 	madeSecret := &corev1.Secret{}
-	cl.Get(context.TODO(), types.NamespacedName{
+	err = cl.Get(context.TODO(), types.NamespacedName{
 		Namespace: calc.Namespace,
 		Name:      calc.Name,
 	}, madeSecret)
 	assert.NoError(t, err)
-	assert.Equal(t, secret.StringData,madeSecret.StringData)
+	assert.Equal(t, secret.StringData, madeSecret.StringData)
 	assert.Equal(t, secret.Annotations, madeSecret.Annotations)
 }
