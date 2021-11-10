@@ -179,3 +179,66 @@ func TestRemoveSecret(t *testing.T) {
 	assert.Equal(t, calc.Spec, testCalc.Spec)
 
 }
+
+func TestCalcStatusTrue(t *testing.T) {
+	calc := &calculator.Calculator{
+		TypeMeta: metav1.TypeMeta{
+			Kind: "Calculator",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: "default",
+			Name:      "test",
+		},
+		Spec: calculator.CalculatorSpec{
+			X: 5,
+			Y: 7,
+		},
+		Status: calculator.CalculatorStatus{
+			Processed: true,
+			Result:    0,
+		},
+	}
+	secret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: calc.Namespace,
+			Name:      calc.Name,
+			Annotations: map[string]string{
+				"manage-by": "calc-operator",
+			},
+		},
+		StringData: map[string]string{
+			"result": strconv.FormatInt(calc.Spec.X+calc.Spec.Y, 10),
+		},
+		Type: corev1.SecretTypeOpaque,
+	}
+
+	s := scheme.Scheme
+	s.AddKnownTypes(appsv1.SchemeGroupVersion, calc, &calculator.Calculator{}, &calculator.CalculatorList{})
+
+	cl := fake.NewClientBuilder().WithObjects(calc).Build()
+
+	r := CalculatorReconciler{
+		Client: cl,
+		Scheme: s,
+	}
+	ctx := context.TODO()
+	nsn := types.NamespacedName{
+		Namespace: calc.Namespace,
+		Name:      calc.Name,
+	}
+	req := reconcile.Request{
+		NamespacedName: nsn,
+	}
+	_, err := r.Reconcile(ctx, req)
+
+	assert.NoError(t, err)
+
+	madeSecret := &corev1.Secret{}
+	err = cl.Get(context.TODO(), types.NamespacedName{
+		Namespace: calc.Namespace,
+		Name:      calc.Name,
+	}, madeSecret)
+	assert.NoError(t, err)
+	assert.Equal(t, secret.StringData, madeSecret.StringData)
+	assert.Equal(t, secret.Annotations, madeSecret.Annotations)
+}

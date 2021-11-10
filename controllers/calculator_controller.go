@@ -79,10 +79,8 @@ func (r *CalculatorReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		return ctrl.Result{}, err
 	}
 
-	if !calc.Status.Processed {
-		calc.Status.Result = calc.Spec.X + calc.Spec.Y
-		calc.Status.Processed = true
-	}
+	calc.Status.Result = calc.Spec.X + calc.Spec.Y
+	calc.Status.Processed = true
 
 	secret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
@@ -104,7 +102,6 @@ func (r *CalculatorReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	}
 
 	return ctrl.Result{}, nil
-
 }
 
 // SetupWithManager sets up the controller with the Manager.
