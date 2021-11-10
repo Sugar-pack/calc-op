@@ -20,7 +20,9 @@ import (
 	"context"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"os"
 	"strconv"
+	"time"
 
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -53,6 +55,7 @@ type CalculatorReconciler struct {
 func (r *CalculatorReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	lg := log.FromContext(ctx)
 
+	lg.Info("start Reconcile")
 	calc := &calculator.Calculator{}
 	err := r.Get(ctx, req.NamespacedName, calc)
 	if err != nil {
@@ -101,7 +104,13 @@ func (r *CalculatorReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		return ctrl.Result{}, err
 	}
 
-	return ctrl.Result{}, nil
+	RTString := os.Getenv("RECONCILIATION_TIME")
+	RT, err := strconv.ParseUint(RTString, 10, 64)
+	if err != nil {
+		return ctrl.Result{RequeueAfter: time.Duration(RT * 1000 * 1000 * 1000)}, nil
+	}
+
+	return ctrl.Result{Requeue: true}, nil
 }
 
 // SetupWithManager sets up the controller with the Manager.
