@@ -61,6 +61,17 @@ func (r *CalculatorReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 			// Owned objects are automatically garbage collected. For additional cleanup logic use finalizers.
 			// Return and don't requeue
 			lg.Info("Calc resource not found. Ignoring since object must be deleted")
+			// remove secret if Calc deleted
+			secret := &corev1.Secret{}
+			err := r.Get(ctx, req.NamespacedName, secret)
+			if err == nil {
+				lg.Info("Found old secret")
+				err := r.Delete(ctx, secret)
+				if err != nil {
+					return ctrl.Result{}, err
+				}
+				lg.Info("Removed old secret")
+			}
 			return ctrl.Result{}, nil
 		}
 		// Error reading the object - requeue the request.
@@ -72,8 +83,6 @@ func (r *CalculatorReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		calc.Status.Result = calc.Spec.X + calc.Spec.Y
 		calc.Status.Processed = true
 	}
-
-
 
 	secret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
