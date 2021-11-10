@@ -1,0 +1,10 @@
+apiVersion: apps.example.com/v1
+kind: Calculator
+metadata:
+  name: calculator-sample
+spec:
+  x: 6
+  y: 11
+status:
+  processed: false
+  result: 0
