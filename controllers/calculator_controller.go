@@ -105,12 +105,14 @@ func (r *CalculatorReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	}
 
 	RTString := os.Getenv("RECONCILIATION_TIME")
+	if RTString == "" {
+		return ctrl.Result{Requeue: true}, nil
+	}
 	RT, err := strconv.ParseUint(RTString, 10, 64)
-	if err != nil {
+	if err == nil {
 		return ctrl.Result{RequeueAfter: time.Duration(RT * 1000 * 1000 * 1000)}, nil
 	}
-
-	return ctrl.Result{Requeue: true}, nil
+	return ctrl.Result{}, err
 }
 
 // SetupWithManager sets up the controller with the Manager.

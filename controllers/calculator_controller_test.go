@@ -18,6 +18,7 @@ package controllers
 
 import (
 	"context"
+	calculator "github.com/example/calc-opr/api/v1"
 	"github.com/stretchr/testify/assert"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -25,12 +26,11 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/scheme"
+	"os"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"strconv"
 	"testing"
-
-	calculator "github.com/example/calc-opr/api/v1"
 	//+kubebuilder:scaffold:imports
 )
 
@@ -241,4 +241,115 @@ func TestCalcStatusTrue(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, secret.StringData, madeSecret.StringData)
 	assert.Equal(t, secret.Annotations, madeSecret.Annotations)
+}
+
+func TestCalcReconcileTimeInvalid(t *testing.T) {
+	err := os.Setenv("RECONCILIATION_TIME", "error")
+	assert.NoError(t, err)
+	calc := &calculator.Calculator{
+		TypeMeta: metav1.TypeMeta{
+			Kind: "Calculator",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: "default",
+			Name:      "test",
+		},
+		Spec: calculator.CalculatorSpec{
+			X: 5,
+			Y: 7,
+		},
+		Status: calculator.CalculatorStatus{
+			Processed: false,
+			Result:    0,
+		},
+	}
+
+	s := scheme.Scheme
+	s.AddKnownTypes(appsv1.SchemeGroupVersion, calc, &calculator.Calculator{}, &calculator.CalculatorList{})
+
+	cl := fake.NewClientBuilder().WithObjects(calc).Build()
+
+	r := CalculatorReconciler{
+		Client: cl,
+		Scheme: s,
+	}
+	ctx := context.TODO()
+	nsn := types.NamespacedName{
+		Namespace: calc.Namespace,
+		Name:      calc.Name,
+	}
+	req := reconcile.Request{
+		NamespacedName: nsn,
+	}
+	_, err = r.Reconcile(ctx, req)
+
+	assert.Error(t, err)
+}
+
+func TestCalcReconcileTimeValid(t *testing.T) {
+	RT := 5
+	err := os.Setenv("RECONCILIATION_TIME", strconv.Itoa(RT))
+	assert.NoError(t, err)
+	calc := &calculator.Calculator{
+		TypeMeta: metav1.TypeMeta{
+			Kind: "Calculator",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: "default",
+			Name:      "test",
+		},
+		Spec: calculator.CalculatorSpec{
+			X: 5,
+			Y: 7,
+		},
+		Status: calculator.CalculatorStatus{
+			Processed: false,
+			Result:    0,
+		},
+	}
+	secret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: calc.Namespace,
+			Name:      calc.Name,
+			Annotations: map[string]string{
+				"manage-by": "calc-operator",
+			},
+		},
+		StringData: map[string]string{
+			"result": strconv.FormatInt(calc.Spec.X+calc.Spec.Y, 10),
+		},
+		Type: corev1.SecretTypeOpaque,
+	}
+
+	s := scheme.Scheme
+	s.AddKnownTypes(appsv1.SchemeGroupVersion, calc, &calculator.Calculator{}, &calculator.CalculatorList{})
+
+	cl := fake.NewClientBuilder().WithObjects(calc).Build()
+
+	r := CalculatorReconciler{
+		Client: cl,
+		Scheme: s,
+	}
+	ctx := context.TODO()
+	nsn := types.NamespacedName{
+		Namespace: calc.Namespace,
+		Name:      calc.Name,
+	}
+	req := reconcile.Request{
+		NamespacedName: nsn,
+	}
+	res, err := r.Reconcile(ctx, req)
+	assert.Equal(t, float64(RT), res.RequeueAfter.Seconds())
+
+	assert.NoError(t, err)
+
+	madeSecret := &corev1.Secret{}
+	err = cl.Get(context.TODO(), types.NamespacedName{
+		Namespace: calc.Namespace,
+		Name:      calc.Name,
+	}, madeSecret)
+	assert.NoError(t, err)
+	assert.Equal(t, secret.StringData, madeSecret.StringData)
+	assert.Equal(t, secret.Annotations, madeSecret.Annotations)
+
 }
